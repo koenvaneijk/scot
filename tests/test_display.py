@@ -1,7 +1,7 @@
 """Tests for display formatting."""
 import pytest
 
-from scot.display import format_results, format_oneline, format_full
+from scot.display import format_results, format_oneline, format_full, format_compact
 from scot.search import SearchResult
 
 
@@ -64,6 +64,55 @@ class TestFormatOneline:
         )
         output = format_oneline([result])
         assert "..." in output
+
+
+class TestFormatCompact:
+    """Tests for format_compact."""
+    
+    def test_basic_output(self, sample_results):
+        output = format_compact(sample_results, full_context=False)
+        assert "## test.py:1-5" in output
+        assert "## other.py:10-20" in output
+    
+    def test_includes_code(self, sample_results):
+        output = format_compact(sample_results, full_context=False)
+        assert "def hello()" in output
+        assert "class Foo" in output
+    
+    def test_no_decorative_separators(self, sample_results):
+        output = format_compact(sample_results, full_context=False)
+        assert "━" not in output
+        assert "score:" not in output
+    
+    def test_truncates_long_chunks(self):
+        long_code = "\n".join([f"line {i}" for i in range(50)])
+        result = SearchResult(
+            file_path="test.py",
+            start_line=1,
+            end_line=50,
+            score=0.9,
+            chunk_text=long_code,
+        )
+        output = format_compact([result], full_context=False)
+        assert "# ... 38 more lines" in output
+    
+    def test_full_context_no_truncation(self):
+        long_code = "\n".join([f"line {i}" for i in range(50)])
+        result = SearchResult(
+            file_path="test.py",
+            start_line=1,
+            end_line=50,
+            score=0.9,
+            chunk_text=long_code,
+        )
+        output = format_compact([result], full_context=True)
+        assert "more lines" not in output
+        assert "line 49" in output
+    
+    def test_compact_flag_in_format_results(self, sample_results):
+        output = format_results(sample_results, compact=True)
+        assert "## test.py:1-5" in output
+        assert "━" not in output
 
 
 class TestFormatFull:
