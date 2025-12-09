@@ -20,6 +20,8 @@ class Daemon:
         self.embedder = Embedder()
         self.running = False
         self.socket = None
+        # Cache BM25 indexes per repo: {repo_path: (bm25_index, chunk_ids, last_update)}
+        self.bm25_cache: dict[str, tuple] = {}
     
     def start(self, foreground: bool = False):
         """Start the daemon."""
@@ -111,6 +113,7 @@ class Daemon:
                 top_k=request.top_k,
                 file_pattern=request.file_pattern or None,
                 mode=request.mode,
+                bm25_cache=self.bm25_cache,
             )
             return Response(
                 success=True,
@@ -129,7 +132,39 @@ class Daemon:
             return Response(success=True, stats=stats)
         
         elif request.action == "status":
-            return Response(success=True, stats={"status": "running"})
+            from .db import get_connection, get_or_create_repo
+            repo_path = Path(request.repo_path) if request.repo_path else None
+            stats = {"status": "running", "pid": os.getpid()}
+            
+            if repo_path:
+                conn = get_connection()
+                repo_id = get_or_create_repo(conn, str(repo_path))
+                cursor = conn.execute(
+                    "SELECT COUNT(*) as count FROM chunks WHERE repo_id = ?",
+                    (repo_id,)
+                )
+                chunk_count = cursor.fetchone()["count"]
+                cursor = conn.execute(
+                    "SELECT COUNT(DISTINCT file_path) as count FROM chunks WHERE repo_id = ?",
+                    (repo_id,)
+                )
+                file_count = cursor.fetchone()["count"]
+                cursor = conn.execute(
+                    "SELECT last_indexed FROM repos WHERE id = ?",
+                    (repo_id,)
+                )
+                last_indexed = cursor.fetchone()["last_indexed"]
+                conn.close()
+                
+                stats.update({
+                    "repo": str(repo_path),
+                    "files": file_count,
+                    "chunks": chunk_count,
+                    "last_indexed": last_indexed,
+                    "bm25_cached": str(repo_path) in self.bm25_cache,
+                })
+            
+            return Response(success=True, stats=stats)
         
         else:
             return Response(success=False, error=f"Unknown action: {request.action}")

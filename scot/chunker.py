@@ -147,6 +147,61 @@ def _indent(text: str, spaces: int = 4) -> str:
     return "\n".join(prefix + line if line else line for line in text.splitlines())
 
 
+def chunk_markdown(content: str) -> list[Chunk]:
+    """Chunk markdown by headers."""
+    lines = content.splitlines()
+    chunks = []
+    
+    if not lines:
+        return chunks
+    
+    # Find header lines (# or more)
+    header_pattern = re.compile(r'^#{1,6}\s+')
+    header_indices = [i for i, line in enumerate(lines) if header_pattern.match(line)]
+    
+    # If no headers, fall back to line-based
+    if not header_indices:
+        return chunk_lines(content)
+    
+    # Add start if first header isn't at line 0
+    if header_indices[0] != 0:
+        header_indices.insert(0, 0)
+    
+    # Create chunks between headers
+    for i, start_idx in enumerate(header_indices):
+        if i + 1 < len(header_indices):
+            end_idx = header_indices[i + 1]
+        else:
+            end_idx = len(lines)
+        
+        chunk_text = "\n".join(lines[start_idx:end_idx]).strip()
+        if not chunk_text:
+            continue
+        
+        # If section is too large, split it
+        section_lines = lines[start_idx:end_idx]
+        if len(section_lines) > CHUNK_SIZE_LINES:
+            # Split large section into sub-chunks
+            sub_start = 0
+            while sub_start < len(section_lines):
+                sub_end = min(sub_start + CHUNK_SIZE_LINES, len(section_lines))
+                sub_text = "\n".join(section_lines[sub_start:sub_end])
+                chunks.append(Chunk(
+                    text=sub_text,
+                    start_line=start_idx + sub_start + 1,
+                    end_line=start_idx + sub_end,
+                ))
+                sub_start += CHUNK_SIZE_LINES - CHUNK_OVERLAP_LINES
+        else:
+            chunks.append(Chunk(
+                text=chunk_text,
+                start_line=start_idx + 1,
+                end_line=end_idx,
+            ))
+    
+    return chunks
+
+
 def chunk_lines(content: str) -> list[Chunk]:
     """Chunk content by lines with overlap."""
     lines = content.splitlines()
