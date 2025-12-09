@@ -38,8 +38,8 @@ def chunk_python(content: str) -> list[Chunk]:
             end_line = node.end_lineno or start_line
             
             # Get the chunk text
-            chunk_lines = lines[start_line - 1:end_line]
-            chunk_text = "\n".join(chunk_lines)
+            node_lines = lines[start_line - 1:end_line]
+            chunk_text = "\n".join(node_lines)
             
             # For methods, include class context
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -48,9 +48,9 @@ def chunk_python(content: str) -> list[Chunk]:
                     chunk_text = f"class {parent_class}:\n" + _indent(chunk_text)
             
             # Truncate very long chunks
-            if len(chunk_lines) > CHUNK_SIZE_LINES:
-                preview_lines = chunk_lines[:CHUNK_SIZE_LINES - 2]
-                remaining = len(chunk_lines) - len(preview_lines)
+            if len(node_lines) > CHUNK_SIZE_LINES:
+                preview_lines = node_lines[:CHUNK_SIZE_LINES - 2]
+                remaining = len(node_lines) - len(preview_lines)
                 chunk_text = "\n".join(preview_lines) + f"\n    # ... ({remaining} more lines)"
             
             chunks.append(Chunk(
