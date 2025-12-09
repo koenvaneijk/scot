@@ -18,8 +18,7 @@ def test_db(tmp_path, monkeypatch):
     scot_dir.mkdir()
     
     # Patch the config to use test paths
-    monkeypatch.setattr("scot.db.DB_PATH", db_path)
-    monkeypatch.setattr("scot.db.SCOT_DIR", scot_dir)
+    monkeypatch.setattr("scot.config.DB_PATH", db_path)
     monkeypatch.setattr("scot.config.SCOT_DIR", scot_dir)
     
     conn = get_connection()

@@ -81,7 +81,8 @@ def baz():
     # missing closing paren
     pass
 '''
-        chunks = chunk_python(code)
+        # chunk_file handles syntax errors by falling back to line-based
+        chunks = chunk_file(Path("test.py"), code)
         # Should not raise, should fall back
         assert len(chunks) >= 1
     
