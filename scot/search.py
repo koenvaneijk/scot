@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
+import time
 
 from .db import get_connection, get_or_create_repo, get_repo_chunks
 from .embedder import Embedder, cosine_similarity_matrix
@@ -26,6 +27,7 @@ def search(
     top_k: int = 5,
     file_pattern: str = None,
     mode: str = "hybrid",  # "hybrid", "semantic", "lexical"
+    bm25_cache: dict = None,  # Cache for BM25 indexes
 ) -> list[SearchResult]:
     """Search for chunks matching the query.
     
@@ -35,6 +37,9 @@ def search(
     stats = index_repo(repo_root, embedder)
     if stats["files_updated"] > 0:
         print(f"Indexed {stats['files_updated']} files, {stats['chunks_added']} chunks")
+        # Invalidate BM25 cache for this repo if index changed
+        if bm25_cache is not None and str(repo_root) in bm25_cache:
+            del bm25_cache[str(repo_root)]
     
     # Get all chunks for this repo
     conn = get_connection()
@@ -44,6 +49,9 @@ def search(
     
     if not chunks:
         return []
+    
+    # Store unfiltered chunks for BM25 cache key
+    all_chunks = chunks
     
     # Filter by file pattern if specified
     if file_pattern:
@@ -69,10 +77,25 @@ def search(
         semantic_ranking = [(int(idx), float(similarities[idx])) for idx in top_indices]
         rankings.append(semantic_ranking)
     
-    # Lexical search (BM25)
+    # Lexical search (BM25) - with caching
     if mode in ("hybrid", "lexical"):
-        bm25 = BM25Index()
-        bm25.index([c["chunk_text"] for c in chunks])
+        cache_key = str(repo_root)
+        bm25 = None
+        
+        # Try to use cached BM25 index (only if no file pattern filter)
+        if bm25_cache is not None and not file_pattern and cache_key in bm25_cache:
+            cached_bm25, cached_chunk_count = bm25_cache[cache_key]
+            if cached_chunk_count == len(all_chunks):
+                bm25 = cached_bm25
+        
+        # Build new index if needed
+        if bm25 is None:
+            bm25 = BM25Index()
+            bm25.index([c["chunk_text"] for c in chunks])
+            # Cache it (only if no file pattern filter)
+            if bm25_cache is not None and not file_pattern:
+                bm25_cache[cache_key] = (bm25, len(all_chunks))
+        
         lexical_ranking = bm25.search(query, top_k=fetch_k)
         rankings.append(lexical_ranking)
     
@@ -101,3 +124,42 @@ def search(
         ))
     
     return results
+
+
+def add_context_lines(
+    result: SearchResult,
+    repo_root: Path,
+    context_lines: int,
+) -> SearchResult:
+    """Add context lines before and after a search result."""
+    file_path = repo_root / result.file_path
+    
+    try:
+        content = file_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return result
+    
+    lines = content.splitlines()
+    
+    # Calculate new line range
+    new_start = max(1, result.start_line - context_lines)
+    new_end = min(len(lines), result.end_line + context_lines)
+    
+    # Build new chunk text with context markers
+    output_lines = []
+    for i in range(new_start - 1, new_end):
+        line_num = i + 1
+        if line_num < result.start_line or line_num > result.end_line:
+            # Context line
+            output_lines.append(f"  {lines[i]}")
+        else:
+            # Original chunk line
+            output_lines.append(f"  {lines[i]}")
+    
+    return SearchResult(
+        file_path=result.file_path,
+        start_line=new_start,
+        end_line=new_end,
+        score=result.score,
+        chunk_text="\n".join(output_lines),
+    )
