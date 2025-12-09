@@ -1,12 +1,13 @@
 """SCOT command-line interface."""
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from .git import get_repo_root
 from .client import ensure_daemon_running, send_request
 from .protocol import Request
-from .search import SearchResult
+from .search import SearchResult, add_context_lines
 from .display import print_results
 from .daemon import stop_daemon, daemon_status, PID_FILE
 
@@ -23,6 +24,9 @@ def main():
                        help="Number of results (default: 5)")
     parser.add_argument("-c", "--context", action="store_true",
                        help="Show full context (no truncation)")
+    parser.add_argument("-C", "--context-lines", type=int, default=0,
+                       metavar="NUM",
+                       help="Show NUM lines before/after each result")
     parser.add_argument("-1", "--oneline", action="store_true",
                        help="One-line output format")
     parser.add_argument("-f", "--filter", type=str, default="",
@@ -101,8 +105,18 @@ def main():
         )
         response = send_request(request)
         if response.success:
-            print(f"Repo: {repo_root}")
-            print(f"Daemon: running")
+            stats = response.stats
+            print(f"Repository:   {repo_root}")
+            print(f"Daemon:       running (pid {stats.get('pid', '?')})")
+            print(f"Files:        {stats.get('files', 0)}")
+            print(f"Chunks:       {stats.get('chunks', 0)}")
+            last_indexed = stats.get('last_indexed', 0)
+            if last_indexed:
+                dt = datetime.fromtimestamp(last_indexed)
+                print(f"Last indexed: {dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            else:
+                print(f"Last indexed: never")
+            print(f"BM25 cached:  {'yes' if stats.get('bm25_cached') else 'no'}")
         else:
             print(f"Error: {response.error}", file=sys.stderr)
         return
@@ -139,6 +153,13 @@ def main():
         )
         for r in response.results
     ]
+    
+    # Add context lines if requested
+    if args.context_lines > 0:
+        results = [
+            add_context_lines(r, repo_root, args.context_lines)
+            for r in results
+        ]
     
     print_results(results, full_context=args.context, oneline=args.oneline)
 
