@@ -110,6 +110,7 @@ class Daemon:
                 self.embedder,
                 top_k=request.top_k,
                 file_pattern=request.file_pattern or None,
+                mode=request.mode,
             )
             return Response(
                 success=True,

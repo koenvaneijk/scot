@@ -13,6 +13,7 @@ class Request:
     top_k: int = 5
     file_pattern: str = ""
     force_reindex: bool = False
+    mode: str = "hybrid"  # "hybrid", "semantic", "lexical"
     
     def to_json(self) -> str:
         return json.dumps(asdict(self))

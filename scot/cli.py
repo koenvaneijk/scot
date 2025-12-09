@@ -27,6 +27,9 @@ def main():
                        help="One-line output format")
     parser.add_argument("-f", "--filter", type=str, default="",
                        help="Filter by file pattern (e.g., '*.py')")
+    parser.add_argument("-m", "--mode", type=str, default="hybrid",
+                       choices=["hybrid", "semantic", "lexical"],
+                       help="Search mode (default: hybrid)")
     
     # Management commands
     parser.add_argument("--reindex", action="store_true",
@@ -116,6 +119,7 @@ def main():
         query=args.query,
         top_k=args.num,
         file_pattern=args.filter,
+        mode=args.mode,
     )
     
     response = send_request(request)
