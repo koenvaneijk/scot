@@ -2,7 +2,7 @@
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from .config import MODEL_NAME, EMBEDDING_DIM
+from .config import MODEL_NAME
 
 
 class Embedder:
@@ -55,7 +55,12 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 def cosine_similarity_matrix(query: np.ndarray, documents: np.ndarray) -> np.ndarray:
     """Compute cosine similarity between query and multiple documents."""
-    # Normalize
-    query_norm = query / np.linalg.norm(query)
-    doc_norms = documents / np.linalg.norm(documents, axis=1, keepdims=True)
+    # Normalize with epsilon to avoid division by zero
+    eps = 1e-10
+    query_norm_val = np.linalg.norm(query)
+    query_norm = query / (query_norm_val + eps) if query_norm_val > eps else query
+    
+    doc_norm_vals = np.linalg.norm(documents, axis=1, keepdims=True)
+    doc_norms = documents / np.where(doc_norm_vals > eps, doc_norm_vals, 1.0)
+    
     return np.dot(doc_norms, query_norm)

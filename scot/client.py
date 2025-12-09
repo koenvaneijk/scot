@@ -49,16 +49,29 @@ def send_request(request: Request) -> Response:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(str(SOCKET_PATH))
-        sock.sendall(request.to_json().encode("utf-8"))
         
-        # Read response
-        data = b""
-        while True:
-            chunk = sock.recv(65536)
+        # Send length-prefixed message
+        data = request.to_json().encode("utf-8")
+        header = f"{len(data):08d}".encode("utf-8")
+        sock.sendall(header + data)
+        
+        # Read length-prefixed response
+        header = b""
+        while len(header) < 8:
+            chunk = sock.recv(8 - len(header))
             if not chunk:
-                break
-            data += chunk
+                raise ConnectionError("Connection closed while reading header")
+            header += chunk
         
-        return Response.from_json(data.decode("utf-8"))
+        msg_len = int(header.decode("utf-8"))
+        
+        response_data = b""
+        while len(response_data) < msg_len:
+            chunk = sock.recv(min(65536, msg_len - len(response_data)))
+            if not chunk:
+                raise ConnectionError("Connection closed while reading response")
+            response_data += chunk
+        
+        return Response.from_json(response_data.decode("utf-8"))
     finally:
         sock.close()

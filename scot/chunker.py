@@ -47,13 +47,14 @@ def chunk_python(content: str) -> list[Chunk]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             parent = _find_parent_class(tree, node)
             if parent:
-                method_ranges.add((node.lineno, node.end_lineno or node.lineno))
+                end_line = node.end_lineno if node.end_lineno is not None else node.lineno
+                method_ranges.add((node.lineno, end_line))
     
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             # Function or method
             start_line = node.lineno
-            end_line = node.end_lineno or start_line
+            end_line = node.end_lineno if node.end_lineno is not None else start_line
             
             node_lines = lines[start_line - 1:end_line]
             chunk_text = "\n".join(node_lines)
@@ -80,6 +81,7 @@ def chunk_python(content: str) -> list[Chunk]:
         elif isinstance(node, ast.ClassDef):
             # Class: only signature + docstring, not the full body
             start_line = node.lineno
+            node_end_line = node.end_lineno if node.end_lineno is not None else start_line
             
             # Find where the class body starts (after decorators and signature)
             # Get docstring if present
@@ -94,7 +96,7 @@ def chunk_python(content: str) -> list[Chunk]:
                 # Find docstring end line
                 first_stmt = node.body[0] if node.body else None
                 if first_stmt and isinstance(first_stmt, ast.Expr) and isinstance(first_stmt.value, ast.Constant):
-                    doc_end = first_stmt.end_lineno or start_line
+                    doc_end = first_stmt.end_lineno if first_stmt.end_lineno is not None else start_line
                     doc_lines = lines[start_line:doc_end]
                     chunk_text = class_line + "\n" + "\n".join(doc_lines)
                     end_line = doc_end
@@ -218,6 +220,9 @@ def chunk_lines(content: str) -> list[Chunk]:
             end_line=len(lines),
         )]
     
+    # Ensure we make progress (overlap must be less than chunk size)
+    step = max(1, CHUNK_SIZE_LINES - CHUNK_OVERLAP_LINES)
+    
     # Sliding window with overlap
     start = 0
     while start < len(lines):
@@ -230,9 +235,7 @@ def chunk_lines(content: str) -> list[Chunk]:
             end_line=end,
         ))
         
-        # Move window
-        start += CHUNK_SIZE_LINES - CHUNK_OVERLAP_LINES
-        if start >= len(lines):
-            break
+        # Move window - ensure we always make progress
+        start += step
     
     return chunks

@@ -81,12 +81,15 @@ def search(
     if mode in ("hybrid", "lexical"):
         cache_key = str(repo_root)
         bm25 = None
+        use_cached = False
         
         # Try to use cached BM25 index (only if no file pattern filter)
         if bm25_cache is not None and not file_pattern and cache_key in bm25_cache:
-            cached_bm25, cached_chunk_count = bm25_cache[cache_key]
-            if cached_chunk_count == len(all_chunks):
+            cached_bm25, cached_chunk_ids = bm25_cache[cache_key]
+            current_chunk_ids = tuple(c["id"] for c in all_chunks)
+            if cached_chunk_ids == current_chunk_ids:
                 bm25 = cached_bm25
+                use_cached = True
         
         # Build new index if needed
         if bm25 is None:
@@ -94,7 +97,8 @@ def search(
             bm25.index([c["chunk_text"] for c in chunks])
             # Cache it (only if no file pattern filter)
             if bm25_cache is not None and not file_pattern:
-                bm25_cache[cache_key] = (bm25, len(all_chunks))
+                chunk_ids = tuple(c["id"] for c in all_chunks)
+                bm25_cache[cache_key] = (bm25, chunk_ids)
         
         lexical_ranking = bm25.search(query, top_k=fetch_k)
         rankings.append(lexical_ranking)
@@ -150,8 +154,8 @@ def add_context_lines(
     for i in range(new_start - 1, new_end):
         line_num = i + 1
         if line_num < result.start_line or line_num > result.end_line:
-            # Context line
-            output_lines.append(f"  {lines[i]}")
+            # Context line (marked with |)
+            output_lines.append(f"| {lines[i]}")
         else:
             # Original chunk line
             output_lines.append(f"  {lines[i]}")

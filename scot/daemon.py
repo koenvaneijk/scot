@@ -89,15 +89,47 @@ class Daemon:
     def _handle_connection(self, conn: socket.socket):
         """Handle a client connection."""
         try:
-            data = conn.recv(65536).decode("utf-8")
+            # Read complete message with length prefix
+            data = self._recv_message(conn)
             request = Request.from_json(data)
             response = self._process_request(request)
-            conn.sendall(response.to_json().encode("utf-8"))
+            self._send_message(conn, response.to_json())
         except Exception as e:
             error_response = Response(success=False, error=str(e))
-            conn.sendall(error_response.to_json().encode("utf-8"))
+            try:
+                self._send_message(conn, error_response.to_json())
+            except Exception:
+                pass
         finally:
             conn.close()
+    
+    def _recv_message(self, conn: socket.socket) -> str:
+        """Receive a length-prefixed message."""
+        # Read 8-byte length header
+        header = b""
+        while len(header) < 8:
+            chunk = conn.recv(8 - len(header))
+            if not chunk:
+                raise ConnectionError("Connection closed while reading header")
+            header += chunk
+        
+        msg_len = int(header.decode("utf-8"))
+        
+        # Read message body
+        data = b""
+        while len(data) < msg_len:
+            chunk = conn.recv(min(65536, msg_len - len(data)))
+            if not chunk:
+                raise ConnectionError("Connection closed while reading message")
+            data += chunk
+        
+        return data.decode("utf-8")
+    
+    def _send_message(self, conn: socket.socket, message: str):
+        """Send a length-prefixed message."""
+        data = message.encode("utf-8")
+        header = f"{len(data):08d}".encode("utf-8")
+        conn.sendall(header + data)
     
     def _process_request(self, request: Request) -> Response:
         """Process a request and return response."""
