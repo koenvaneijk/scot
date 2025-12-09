@@ -15,7 +15,19 @@ class Embedder:
         """Load the model into memory."""
         if self.model is None:
             print(f"Loading model {MODEL_NAME}...")
-            self.model = SentenceTransformer(MODEL_NAME)
+            try:
+                self.model = SentenceTransformer(MODEL_NAME)
+            except OSError as e:
+                error_msg = str(e)
+                if "401" in error_msg or "Access" in error_msg or "gated" in error_msg.lower():
+                    raise RuntimeError(
+                        f"Access denied to {MODEL_NAME}\n\n"
+                        "To fix:\n"
+                        f"  1. Visit https://huggingface.co/{MODEL_NAME}\n"
+                        "  2. Click 'Acknowledge license' to accept the terms\n"
+                        "  3. Run: huggingface-cli login"
+                    ) from e
+                raise
             print("Model loaded.")
     
     def embed_query(self, query: str) -> np.ndarray:

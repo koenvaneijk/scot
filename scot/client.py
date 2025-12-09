@@ -18,7 +18,7 @@ def ensure_daemon_running() -> bool:
     if daemon_status():
         return True
     
-    print("Starting daemon...")
+    print("Starting daemon (first run loads model, may take 10-30s)...")
     
     # Start daemon in background
     subprocess.Popen(

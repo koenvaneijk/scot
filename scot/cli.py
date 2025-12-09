@@ -12,11 +12,30 @@ from .display import print_results
 from .daemon import stop_daemon, daemon_status, PID_FILE
 
 
+EPILOG = """\
+Examples:
+  scot "error handling"          Search semantically for error handling code
+  scot -m lexical "def parse"    Exact keyword match (function names, etc.)
+  scot -f "*.py" "database"      Search only Python files
+  scot -C 3 "auth"               Show 3 lines of context around matches
+  scot -n 10 "config"            Show top 10 results
+
+Search modes:
+  hybrid (default)  Combines semantic + keyword matching (best for most queries)
+  semantic          Pure meaning-based search ("auth" finds "login", "verify")
+  lexical           Pure keyword matching (exact function/variable names)
+
+Note: First query starts a background daemon (~10-30s to load the model).
+"""
+
+
 def main():
     """Main entry point for scot command."""
     parser = argparse.ArgumentParser(
         description="SCOT - Semantic Code Ordering Tool",
         usage="scot [options] <query>",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     
     parser.add_argument("query", nargs="?", help="Search query")
