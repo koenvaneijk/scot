@@ -1,4 +1,5 @@
 """Indexing logic - scan repo and update embeddings."""
+import time
 from pathlib import Path
 
 from .db import (
@@ -91,6 +92,12 @@ def index_repo(repo_root: Path, embedder: Embedder, force: bool = False) -> dict
             chunk.text, embeddings[i]
         )
         stats["chunks_added"] += 1
+    
+    # Update last_indexed timestamp
+    conn.execute(
+        "UPDATE repos SET last_indexed = ? WHERE id = ?",
+        (time.time(), repo_id)
+    )
     
     conn.commit()
     conn.close()
