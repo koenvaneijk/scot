@@ -1,0 +1,18 @@
+[project]
+name = "scot"
+version = "0.1.0"
+description = "Semantic Code Ordering Tool - grep by meaning"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "sentence-transformers>=3.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.scripts]
+scot = "scot.cli:main"
+scotd = "scot.daemon:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
