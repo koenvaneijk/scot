@@ -48,7 +48,7 @@ class TestChunkOperations:
     """Tests for chunk CRUD operations."""
     
     def test_insert_and_get_chunks(self, test_db):
-        repo_id = get_or_create_repo(test_db, "/test/repo")
+        repo_id = get_or_create_repo(test_db, "/test/repo/insert")
         embedding = np.random.randn(768).astype(np.float32)
         
         insert_chunk(
@@ -65,7 +65,7 @@ class TestChunkOperations:
         assert chunks[0]["end_line"] == 10
     
     def test_get_file_mtime(self, test_db):
-        repo_id = get_or_create_repo(test_db, "/test/repo")
+        repo_id = get_or_create_repo(test_db, "/test/repo/mtime")
         embedding = np.random.randn(768).astype(np.float32)
         
         insert_chunk(
@@ -78,12 +78,12 @@ class TestChunkOperations:
         assert mtime == 1234567890.0
     
     def test_get_file_mtime_not_found(self, test_db):
-        repo_id = get_or_create_repo(test_db, "/test/repo")
+        repo_id = get_or_create_repo(test_db, "/test/repo/mtime_notfound")
         mtime = get_file_mtime(test_db, repo_id, "nonexistent.py")
         assert mtime is None
     
     def test_delete_file_chunks(self, test_db):
-        repo_id = get_or_create_repo(test_db, "/test/repo")
+        repo_id = get_or_create_repo(test_db, "/test/repo/delete")
         embedding = np.random.randn(768).astype(np.float32)
         
         insert_chunk(test_db, repo_id, "test.py", 1234567890.0, 1, 5, "chunk1", embedding)
