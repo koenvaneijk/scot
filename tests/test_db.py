@@ -99,7 +99,7 @@ class TestChunkOperations:
         assert chunks[0]["file_path"] == "other.py"
     
     def test_get_repo_files(self, test_db):
-        repo_id = get_or_create_repo(test_db, "/test/repo")
+        repo_id = get_or_create_repo(test_db, "/test/repo/files")
         embedding = np.random.randn(768).astype(np.float32)
         
         insert_chunk(test_db, repo_id, "file1.py", 1234567890.0, 1, 5, "code", embedding)
@@ -111,7 +111,7 @@ class TestChunkOperations:
         assert files == {"file1.py", "file2.py"}
     
     def test_embedding_roundtrip(self, test_db):
-        repo_id = get_or_create_repo(test_db, "/test/repo")
+        repo_id = get_or_create_repo(test_db, "/test/repo/embedding")
         original_embedding = np.random.randn(768).astype(np.float32)
         
         insert_chunk(
