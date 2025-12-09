@@ -48,8 +48,8 @@ def main():
                        help="Show NUM lines before/after each result")
     parser.add_argument("-1", "--oneline", action="store_true",
                        help="One-line output format")
-    parser.add_argument("--compact", action="store_true",
-                       help="Compact output for LLM consumption (minimal tokens)")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                       help="Verbose output with scores and separators")
     parser.add_argument("-f", "--filter", type=str, default="",
                        help="Filter by file pattern (e.g., '*.py')")
     parser.add_argument("-m", "--mode", type=str, default="hybrid",
@@ -182,7 +182,7 @@ def main():
             for r in results
         ]
     
-    print_results(results, full_context=args.context, oneline=args.oneline, compact=args.compact)
+    print_results(results, full_context=args.context, oneline=args.oneline, compact=not args.verbose)
 
 
 if __name__ == "__main__":
